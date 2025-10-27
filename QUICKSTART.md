@@ -11,8 +11,11 @@
 # TESTING (probar antes de commit)
 docker-compose up --build
 
-# PRODUCCIÓN (deploy a Kubernetes)
+# PRODUCCIÓN LOCAL (deploy a Kubernetes)
 ./scripts/k8s-deploy.sh && ./scripts/k8s-apply-ingress.sh
+
+# PRODUCCIÓN NUBE (deploy a AWS - ver AWS-DEPLOYMENT.md)
+./scripts/aws-deploy.sh
 ```
 
 ### ⏹️ Detener
