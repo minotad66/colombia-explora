@@ -3,12 +3,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import jwt
 import os
+import hashlib
+import hmac
 from datetime import datetime, timedelta
-from passlib.context import CryptContext
 from .db import engine, get_session
 from .models import User
-from sqlmodel import SQLModel, select
-from sqlmodel.ext.asyncio.session import AsyncSession
+from sqlmodel import SQLModel, select, Session
 
 app = FastAPI(title="explora-auth")
 app.add_middleware(
@@ -20,7 +20,23 @@ app.add_middleware(
 )
 
 SECRET = os.environ.get("JWT_SECRET", "devsecret")
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# Funciones de hashing con PBKDF2 (puro Python, sin dependencias compiladas)
+def hash_password(password: str) -> str:
+    """Hash password usando PBKDF2-SHA256"""
+    salt = os.urandom(32)
+    pwdhash = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt, 100000)
+    return salt.hex() + pwdhash.hex()
+
+def verify_password(password: str, hashed: str) -> bool:
+    """Verificar password contra hash"""
+    try:
+        salt = bytes.fromhex(hashed[:64])
+        stored_hash = bytes.fromhex(hashed[64:])
+        pwdhash = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt, 100000)
+        return hmac.compare_digest(pwdhash, stored_hash)
+    except:
+        return False
 
 
 class RegisterRequest(BaseModel):
@@ -35,58 +51,57 @@ class TokenRequest(BaseModel):
 
 
 @app.on_event("startup")
-async def on_startup():
-    import asyncio
+def on_startup():
+    import time
     # Wait for DB to be ready with retries
     retries = 12
     delay = 2
     for attempt in range(1, retries + 1):
         try:
-            async with engine.begin() as conn:
-                await conn.run_sync(SQLModel.metadata.create_all)
+            SQLModel.metadata.create_all(engine)
             # Create default admin user if it doesn't exist
-            async with AsyncSession(engine) as session:
+            with Session(engine) as session:
                 q = select(User).where(User.username == "admin")
-                r = await session.exec(q)
+                r = session.exec(q)
                 admin = r.first()
                 if not admin:
-                    hashed = pwd_context.hash("admin123")
+                    hashed = hash_password("admin123")
                     admin = User(username="admin", email="admin@explora.com", hashed_password=hashed, role="admin")
                     session.add(admin)
-                    await session.commit()
+                    session.commit()
             break
         except Exception as exc:
             if attempt == retries:
                 raise
-            await asyncio.sleep(delay)
+            time.sleep(delay)
 
 
 @app.get("/health")
-async def health():
+def health():
     return {"status": "ok"}
 
 
 @app.post("/register")
-async def register(req: RegisterRequest, session: AsyncSession = Depends(get_session)):
+def register(req: RegisterRequest, session: Session = Depends(get_session)):
     q = select(User).where(User.username == req.username)
-    r = await session.exec(q)
+    r = session.exec(q)
     existing = r.first()
     if existing:
         raise HTTPException(status_code=400, detail="Username already exists")
-    hashed = pwd_context.hash(req.password)
+    hashed = hash_password(req.password)
     user = User(username=req.username, email=req.email, hashed_password=hashed)
     session.add(user)
-    await session.commit()
-    await session.refresh(user)
+    session.commit()
+    session.refresh(user)
     return {"id": user.id, "username": user.username}
 
 
 @app.post("/token")
-async def token(req: TokenRequest, session: AsyncSession = Depends(get_session)):
+def token(req: TokenRequest, session: Session = Depends(get_session)):
     q = select(User).where(User.username == req.username)
-    r = await session.exec(q)
+    r = session.exec(q)
     user = r.first()
-    if not user or not pwd_context.verify(req.password, user.hashed_password):
+    if not user or not verify_password(req.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     now = datetime.utcnow()
     payload = {
@@ -97,7 +112,7 @@ async def token(req: TokenRequest, session: AsyncSession = Depends(get_session))
         "exp": int((now + timedelta(hours=4)).timestamp()),
     }
     token = jwt.encode(payload, SECRET, algorithm="HS256")
-    return {"access_token": token}
+    return {"access_token": token, "token_type": "bearer"}
 
 
 @app.get("/verify")
@@ -107,3 +122,18 @@ async def verify(token: str = ""):
         return {"valid": True, "sub": payload.get("sub"), "user_id": payload.get("user_id")}
     except jwt.PyJWTError:
         raise HTTPException(status_code=401, detail="Invalid token")
+
+
+@app.post("/make-admin/{username}")
+def make_admin(username: str, session: Session = Depends(get_session)):
+    """Endpoint temporal para hacer admin a un usuario"""
+    q = select(User).where(User.username == username)
+    r = session.exec(q)
+    user = r.first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    user.role = "admin"
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return {"message": f"User {username} is now admin", "user_id": user.id, "role": user.role}

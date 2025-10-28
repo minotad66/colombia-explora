@@ -12,6 +12,13 @@ window.__env = window.__env || {};
         window.__env.AUTH_URL = 'http://localhost:8001';
         console.log('🔧 Development mode: Using localhost');
     }
+    // AWS Serverless (producción)
+    else if (hostname.includes('cloudfront.net') || hostname.includes('s3-website')) {
+        // URLs de AWS API Gateway
+        window.__env.API_URL = 'https://ynhe00xnv9.execute-api.us-east-1.amazonaws.com/api';
+        window.__env.AUTH_URL = 'https://ynhe00xnv9.execute-api.us-east-1.amazonaws.com/auth';
+        console.log('☁️ AWS Serverless mode: Using API Gateway');
+    }
     // Kubernetes con Ingress (cualquier IP/dominio)
     else {
         // Usa rutas relativas - el Ingress enruta /api y /auth

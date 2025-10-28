@@ -8,7 +8,8 @@ from app.main import app
 
 # Mangum es el adaptador que convierte requests de API Gateway
 # al formato que FastAPI entiende
-handler = Mangum(app, lifespan="off")
+# api_gateway_base_path="/api" le dice a Mangum que quite /api del path
+handler = Mangum(app, lifespan="off", api_gateway_base_path="/api")
 
 # Variables de entorno requeridas (configurar en Lambda):
 # - DATABASE_URL: postgresql+asyncpg://user:pass@rds-endpoint/db
