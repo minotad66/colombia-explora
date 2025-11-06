@@ -113,3 +113,9 @@ terraform/tfplan
 *.temp
 *.bak
 *.backup
+
+# ==============================================
+# ARCHIVOS GRANDES / BINARIOS
+# ==============================================
+kubectl
+k8s/
