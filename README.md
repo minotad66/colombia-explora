@@ -1,6 +1,6 @@
 # 🌄 Colombia Explora - Despliegue en AWS
 
-Plataforma web moderna para reservas de destinos turísticos en el Eje Cafetero colombiano, desplegada en AWS con arquitectura serverless.
+Plataforma web moderna para reservas de destinos turísticos, desplegada en AWS con arquitectura serverless.
 
 ---
 
@@ -285,4 +285,4 @@ Si tienes problemas:
 
 ---
 
-**Desarrollado con ❤️ para aventureros colombianos** 🇨🇴🏔️
+**Desarrollado por grupo 9**
