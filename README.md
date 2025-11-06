@@ -273,16 +273,4 @@ curl -X POST https://zp9xx62mde.execute-api.us-east-1.amazonaws.com/api/destinat
 
 ---
 
-## 📞 Soporte
-
-Si tienes problemas:
-
-1. Verifica que AWS CLI esté configurado: `aws sts get-caller-identity`
-2. Revisa los logs de CloudWatch
-3. Consulta `terraform/README.md` para troubleshooting
-4. Verifica permisos IAM en `terraform/PERMISOS-IAM.md`
-5. Verifica que los destinos existan: `curl https://[API_URL]/api/destinations`
-
----
-
 **Desarrollado por grupo 9**
