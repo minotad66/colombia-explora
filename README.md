@@ -1,913 +1,275 @@
-# 🌄 Colombia Explora - Plataforma de Turismo de Aventura
+# 🌄 Colombia Explora - Despliegue en AWS
 
-Plataforma web moderna para reservas de destinos turísticos en el Eje Cafetero colombiano, con sistema de autenticación, gestión de destinos y reservas con cálculo automático de precios.
+Plataforma web moderna para reservas de destinos turísticos en el Eje Cafetero colombiano, desplegada en AWS con arquitectura serverless.
 
 ---
 
-## ⚡ Quick Start
+## 🚀 Despliegue Rápido en AWS
+
+### Requisitos Previos
+
+1. **Terraform** instalado
+   ```bash
+   brew install terraform  # macOS
+   # o descarga desde https://www.terraform.io/downloads
+   ```
+
+2. **AWS CLI** instalado y configurado
+   ```bash
+   brew install awscli  # macOS
+   aws configure  # Ingresa tus credenciales AWS
+   ```
+
+3. **Permisos IAM** en AWS
+   - Necesitas permisos para crear: RDS, Lambda, API Gateway, S3, CloudFront, VPC, IAM
+   - Si no los tienes, consulta `terraform/PERMISOS-IAM.md`
+
+### Paso 1: Verificar Requisitos
 
 ```bash
-# DESARROLLO (con debugger)
-./scripts/dev-setup.sh
-
-# TESTING (Docker)
-docker-compose up --build
-
-# PRODUCCIÓN (Kubernetes)
-./scripts/k8s-deploy.sh && ./scripts/k8s-apply-ingress.sh
+./scripts/check-requirements.sh
 ```
 
-**� [QUICKSTART.md](QUICKSTART.md) - Guía rápida de 3 minutos**
+### Paso 2: Configurar Variables
+
+```bash
+cd terraform
+cp terraform.tfvars.example terraform.tfvars
+# Edita terraform.tfvars con tus valores (región, subnets, etc.)
+```
+
+### Paso 3: Desplegar
+
+```bash
+# Inicializar Terraform
+terraform init
+
+# Ver plan de despliegue
+terraform plan
+
+# Aplicar despliegue (crea toda la infraestructura)
+terraform apply
+```
+
+⏱️ **Tiempo estimado:** 10-15 minutos
+
+### Paso 4: Acceder a la Aplicación
+
+Después del despliegue, Terraform mostrará las URLs:
+
+```bash
+# Ver todas las URLs
+terraform output
+
+# URL principal de la aplicación
+terraform output application_url
+
+# URL del API Gateway
+terraform output api_gateway_url
+```
+
+### Paso 5: Verificar que Todo Funciona
+
+1. **Abre la URL del frontend** en tu navegador
+2. **Deberías ver 6 destinos de ejemplo** ya creados:
+   - Valle del Cocora (Quindío)
+   - Salento (Quindío)
+   - Termales de Santa Rosa (Risaralda)
+   - Parque Nacional Natural Los Nevados (Tolima)
+   - Manizales (Caldas)
+   - Pereira (Risaralda)
+
+3. **Prueba el registro de usuario:**
+   - Haz clic en "Únete Ahora" o "Registrarse"
+   - Crea una cuenta nueva
+   - Inicia sesión
+
+4. **Prueba crear una reserva:**
+   - Selecciona un destino
+   - Haz clic en "Reservar Ahora"
+   - Completa el formulario de reserva
+
+**Usuario Admin por Defecto:**
+- Username: `admin`
+- Password: `admin123`
+- ⚠️ **Importante:** Cambia esta contraseña en producción
 
 ---
 
-## �📚 Documentación
+## 📚 Documentación Completa
 
-| Documento | Descripción | Cuándo usarlo |
-|-----------|-------------|---------------|
-| **[QUICKSTART.md](QUICKSTART.md)** | ⚡ 3 comandos para iniciar | **Primera vez - EMPIEZA AQUÍ** 🚀 |
-| **[WORKFLOW.md](WORKFLOW.md)** | 🎯 Comparativa de entornos (Local/Docker/K8s) | Entender los 3 modos de trabajo |
-| **[DEVELOPMENT.md](DEVELOPMENT.md)** | 🔧 Guía de desarrollo local con PyCharm/VSCode | Desarrollo diario con debugger |
-| **[DEBUGGING.md](DEBUGGING.md)** | 🐛 Ejemplos prácticos de debugging | Cuando tienes un bug |
-| **[README-KUBERNETES.md](README-KUBERNETES.md)** | ☸️ Guía de Kubernetes para principiantes | Deploy a producción |
-| **[SOLUCION-KUBERNETES.md](SOLUCION-KUBERNETES.md)** | 🔐 Arquitectura de Ingress | Entender el networking en K8s |
-| **[ARCHITECTURE.md](ARCHITECTURE.md)** | 🏗️ Diagramas de arquitectura | Entender la estructura |
-| **[README.md](README.md)** (este archivo) | 📖 Documentación completa | Referencia general |
+Para instrucciones detalladas, consulta:
 
----
-
-## 📋 Tabla de Contenidos
-
-- [Arquitectura](#-arquitectura)
-- [Tecnologías](#-tecnologías)
-- [Requisitos](#-requisitos)
-- [Instalación](#-instalación)
-- [Estructura del Proyecto](#-estructura-del-proyecto)
-- [API Endpoints](#-api-endpoints)
-- [Base de Datos](#-base-de-datos)
-- [Sistema de Roles](#-sistema-de-roles)
-- [Desarrollo](#-desarrollo)
-  - [🔧 Desarrollo Local con PyCharm/VSCode](DEVELOPMENT.md)
-  - [🐳 Docker Compose (Testing)](#-docker-compose-testing-de-integración)
-  - [☸️ Kubernetes (Producción)](README-KUBERNETES.md)
-- [Testing](#-testing)
-- [Kubernetes](#-kubernetes)
+- **[terraform/README.md](terraform/README.md)** - Guía completa de despliegue con Terraform
+- **[terraform/PERMISOS-IAM.md](terraform/PERMISOS-IAM.md)** - Configuración de permisos IAM
 
 ---
 
 ## 🏗️ Arquitectura
 
-El proyecto utiliza una **arquitectura de microservicios** containerizada con Docker Compose:
-
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                     Docker Network (explora_net)            │
-│                                                             │
-│  ┌──────────────┐  ┌───────────────┐  ┌──────────────┐      │
-│  │   Frontend   │  │  Auth Service │  │  API Service │      │
-│  │  (Angular)   │  │   (FastAPI)   │  │   (FastAPI)  │      │
-│  │  Port: 4200  │  │  Port: 8001   │  │  Port: 8000  │      │
-│  └──────┬───────┘  └──────┬────────┘  └──────┬───────┘      │
-│         │                 │                  │              │
-│         └─────────────────┴──────────────────┘              │
-│                           │                                 │
-│                  ┌────────▼────────┐                        │
-│                  │   PostgreSQL    │                        │
-│                  │   Port: 5432    │                        │
-│                  └─────────────────┘                        │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
+│                         CloudFront                           │
+│                    (CDN + SSL Gratuito)                      │
+└───────────────────────────┬─────────────────────────────────┘
+                            │
+                    ┌───────▼────────┐
+                    │   S3 Bucket    │
+                    │   (Frontend)   │
+                    └────────────────┘
+                            │
+        ┌───────────────────┴───────────────────┐
+        │                                       │
+┌───────▼────────┐                  ┌───────────▼────────┐
+│  API Gateway   │                  │   API Gateway      │
+│   (Auth API)   │                  │   (Main API)       │
+└───────┬────────┘                  └───────────┬────────┘
+        │                                       │
+┌───────▼────────┐                  ┌───────────▼────────┐
+│ Lambda (Auth)  │                  │  Lambda (API)      │
+└───────┬────────┘                  └───────────┬────────┘
+        │                                       │
+        └───────────────┬───────────────────────┘
+                        │
+                ┌───────▼────────┐
+                │   RDS          │
+                │  PostgreSQL     │
+                └─────────────────┘
 ```
 
-### Servicios
+### Componentes
 
-#### 🎨 **Frontend (Angular 15 + Bootstrap 5)**
-- SPA (Single Page Application) con Angular
-- Diseño responsivo con Bootstrap 5.3
-- Estilos personalizados con SCSS
-- Servidor: Nginx (producción)
-- **URL:** http://localhost:4200
-
-#### 🔐 **Auth Service (FastAPI)**
-- Microservicio de autenticación independiente
-- Generación y validación de JWT (HS256)
-- Sistema de roles (admin/user)
-- Registro y login de usuarios
-- **URL:** http://localhost:8001
-- **Docs:** http://localhost:8001/docs
-
-#### 🚀 **API Service (FastAPI)**
-- Servicio principal de lógica de negocio
-- Gestión de destinos turísticos
-- Sistema de reservas con cálculo automático
-- Protección mediante JWT
-- **URL:** http://localhost:8000
-- **Docs:** http://localhost:8000/docs
-
-#### 🗄️ **PostgreSQL 15**
-- Base de datos relacional
-- Persistencia en volumen local (`./data/postgres`)
-- Acceso interno en red Docker
-- **Puerto:** 5432 (interno)
+- **Frontend (Angular)**: Alojado en S3, servido por CloudFront
+- **Backend (FastAPI)**: Lambda Functions invocadas por API Gateway
+- **Base de Datos**: PostgreSQL en RDS
+- **Autenticación**: JWT con servicio Auth separado
 
 ---
 
 ## 🛠️ Tecnologías
 
-### Backend
-- **FastAPI** 0.100+ - Framework web moderno y rápido
-- **SQLModel** - ORM basado en Pydantic y SQLAlchemy
-- **asyncpg** - Driver asíncrono para PostgreSQL
-- **pyjwt** - Autenticación JWT
-- **passlib[bcrypt]** - Hash de contraseñas
-- **uvicorn** - Servidor ASGI
-
-### Frontend
-- **Angular** 15 - Framework frontend
-- **Bootstrap** 5.3 - Framework CSS
-- **SCSS** - Preprocesador CSS
-- **Font Awesome** 6.4 - Iconografía
-- **RxJS** - Programación reactiva
-- **Nginx** - Servidor web
-
-### Base de Datos
-- **PostgreSQL** 15-alpine
-
-### DevOps
-- **Docker** - Containerización
-- **Docker Compose** - Orquestación
+- **Frontend**: Angular 15, Bootstrap 5
+- **Backend**: FastAPI, Python 3.11
+- **Base de Datos**: PostgreSQL 15
+- **Infraestructura**: AWS (Lambda, API Gateway, S3, CloudFront, RDS)
+- **IaC**: Terraform
 
 ---
 
-## ✅ Requisitos
-
-- **Docker** 20.10+
-- **Docker Compose** 2.0+
-- **(Opcional)** Node.js 16+ y npm (para desarrollo local del frontend)
-
----
-
-## 🚀 Instalación
-
-### Opción A: Instalación Automática (Recomendado) 🎯
-
-Usa el script de inicio rápido que automatiza todo el proceso:
-
-```bash
-# Dar permisos de ejecución a los scripts
-chmod +x scripts/*.sh
-
-# Ejecutar instalación automática
-./scripts/quick_start.sh
-```
-
-Este script automáticamente:
-- ✅ Verifica que Docker y Docker Compose estén instalados
-- ✅ Crea el archivo `.env` desde `.env.example` si no existe
-- ✅ Detiene contenedores existentes
-- ✅ (Opcional) Resetea la base de datos
-- ✅ Construye todas las imágenes Docker
-- ✅ Inicia todos los servicios
-- ✅ Verifica el estado de salud de cada servicio
-- ✅ Muestra URLs de acceso y credenciales
-
-### Opción B: Instalación Manual 🔧
-
-### 1️⃣ Clonar el repositorio
-
-```bash
-git clone https://github.com/SebaxtriUTP/colombia-explora
-cd explora
-```
-
-### 2️⃣ Configurar variables de entorno (Opcional)
-
-```bash
-# Copiar el archivo de ejemplo
-cp .env.example .env
-
-# Editar valores si es necesario (JWT_SECRET, contraseñas, etc.)
-nano .env
-```
-
-### 3️⃣ Levantar todos los servicios
-
-```bash
-docker-compose up --build -d
-```
-
-Este comando:
-- ✅ Descarga las imágenes base necesarias
-- ✅ Construye los contenedores de auth, api y frontend
-- ✅ Crea la red Docker `explora_net`
-- ✅ Inicia PostgreSQL con volumen persistente
-- ✅ Ejecuta migraciones automáticas (crea tablas)
-- ✅ Crea usuario admin por defecto
-
-### 4️⃣ Verificar que los servicios estén corriendo
-
-```bash
-docker-compose ps
-```
-
-Deberías ver 4 contenedores en estado `Up`:
-```
-NAME                 STATUS
-explora_postgres     Up
-explora_auth         Up
-explora_api          Up
-explora_frontend     Up
-```
-
-### 5️⃣ Verificar health de los servicios
-
-**Opción 1: Script automático (Recomendado)**
-```bash
-./scripts/health_check.sh
-```
-
-Este script verifica:
-- ✅ Estado de todos los contenedores Docker
-- ✅ Endpoint `/health` del Auth Service (Puerto 8001)
-- ✅ Endpoint `/health` del API Service (Puerto 8000)
-- ✅ Disponibilidad del Frontend Angular (Puerto 4200)
-- ✅ Conexión a PostgreSQL
-- ✅ Muestra resumen con colores (verde=OK, rojo=FAIL)
-
-**Opción 2: Verificación manual**
-```bash
-curl http://localhost:8001/health  # Auth service
-curl http://localhost:8000/health  # API service
-```
-
-Ambos deben responder: `{"status":"ok"}`
-
-### 6️⃣ Acceder a la aplicación
-
-Abre tu navegador en: **http://localhost:4200**
-
----
-
-## 🛠️ Scripts de Utilidad
-
-El proyecto incluye scripts bash en la carpeta `scripts/` para facilitar tareas comunes:
-
-### `quick_start.sh` - Instalación Automática
-
-**Uso:**
-```bash
-chmod +x scripts/quick_start.sh
-./scripts/quick_start.sh
-```
-
-**Qué hace:**
-1. ✅ Verifica instalación de Docker y Docker Compose
-2. ✅ Crea `.env` desde `.env.example` (si no existe)
-3. ✅ Detiene contenedores existentes
-4. ✅ Opcionalmente resetea la base de datos (pregunta al usuario)
-5. ✅ Construye todas las imágenes Docker
-6. ✅ Inicia todos los servicios en modo detached (`-d`)
-7. ✅ Espera 8 segundos a que los servicios inicien
-8. ✅ Verifica health de todos los servicios
-9. ✅ Muestra resumen con URLs y credenciales de admin
-
-**Cuándo usarlo:**
-- Primera instalación del proyecto
-- Después de hacer cambios importantes en Dockerfiles
-- Para resetear el ambiente de desarrollo
-
-### `health_check.sh` - Verificación de Servicios
-
-**Uso:**
-```bash
-chmod +x scripts/health_check.sh
-./scripts/health_check.sh
-```
-
-**Qué hace:**
-1. ✅ Muestra estado de contenedores (`docker-compose ps`)
-2. ✅ Verifica Auth Service en `http://localhost:8001/health`
-3. ✅ Verifica API Service en `http://localhost:8000/health`
-4. ✅ Verifica Frontend en `http://localhost:4200`
-5. ✅ Verifica PostgreSQL con `pg_isready`
-6. ✅ Muestra resumen con colores:
-   - 🟢 Verde: Servicio funcionando correctamente
-   - 🔴 Rojo: Servicio con problemas
-   - 🟡 Amarillo: Advertencias
-7. ✅ Exit code indica número de servicios con problemas
-
-**Cuándo usarlo:**
-- Después de iniciar los servicios
-- Para debugging de problemas
-- En scripts de CI/CD
-- Para verificar que todo funciona antes de trabajar
-
-**Ejemplo de salida:**
-```
-============================================
-🏔️  Colombia Explora - Health Check
-============================================
-
-📦 Estado de Contenedores:
--------------------------------------------
-NAME                 STATUS
-explora_postgres     Up
-explora_auth         Up
-explora_api          Up
-explora_frontend     Up
-
-🔐 Servicios Backend:
--------------------------------------------
-Verificando Auth Service... ✓ OK (HTTP 200)
-Verificando API Service... ✓ OK (HTTP 200)
-
-🎨 Frontend:
--------------------------------------------
-Verificando Angular Frontend... ✓ OK (HTTP 200)
-
-🗄️  Base de Datos:
--------------------------------------------
-Verificando PostgreSQL... ✓ OK
-
-============================================
-✅ Todos los servicios están funcionando (4/4)
-
-🌐 URLs disponibles:
-   - Frontend:  http://localhost:4200
-   - API Docs:  http://localhost:8000/docs
-   - Auth Docs: http://localhost:8001/docs
-============================================
-```
-
-**Códigos de salida:**
-- `0`: Todos los servicios OK
-- `> 0`: Número de servicios con problemas
-
----
-
-## 📁 Estructura del Proyecto
+## 📋 Estructura del Proyecto
 
 ```
-explora/
-├── docker-compose.yml          # Orquestación de servicios
-├── README.md                   # Este archivo
-├── data/                       # Volumen persistente de PostgreSQL
-│   └── postgres/               # Datos de la BD (ignorado en git)
-│
-├── auth/                       # Microservicio de autenticación
-│   ├── Dockerfile
-│   ├── requirements.txt        # Dependencias Python
-│   └── app/
-│       ├── main.py            # API FastAPI
-│       ├── models.py          # Modelo User
-│       └── db.py              # Conexión a BD
-│
-├── api/                        # Microservicio principal
-│   ├── Dockerfile
-│   ├── requirements.txt
-│   └── app/
-│       ├── main.py            # Endpoints de destinos y reservas
-│       ├── models.py          # Modelos Destination, Reservation
-│       └── db.py              # Conexión a BD
-│
-└── frontend/                   # Aplicación Angular
-    ├── Dockerfile              # Multi-stage build (Node + Nginx)
-    ├── package.json
-    ├── angular.json
-    ├── tsconfig.json
-    └── src/
-        ├── index.html
-        ├── styles.scss         # Estilos globales
-        ├── main.ts
-        └── app/
-            ├── app.module.ts
-            ├── app.component.ts
-            ├── components/     # Header, Footer
-            ├── pages/          # Home, Login, Register, etc.
-            └── services/       # AuthService, DestinationService, etc.
+colombia-explora/
+├── terraform/           # Infraestructura como Código
+│   ├── main.tf         # Configuración principal
+│   ├── variables.tf    # Variables de configuración
+│   ├── outputs.tf      # URLs y credenciales
+│   └── README.md        # Documentación completa
+├── api/                # Microservicio API (Lambda)
+├── auth/               # Microservicio Auth (Lambda)
+├── frontend/           # Aplicación Angular
+└── scripts/            # Scripts de utilidad
 ```
 
 ---
 
-## 🔌 API Endpoints
+## 🔧 Comandos Útiles
 
-### Auth Service (Puerto 8001)
+### Ver Estado del Despliegue
 
-| Método | Endpoint | Descripción | Auth |
-|--------|----------|-------------|------|
-| POST | `/register` | Registro de usuario | ❌ |
-| POST | `/token` | Login (obtener JWT) | ❌ |
-| GET | `/health` | Health check | ❌ |
-
-#### Ejemplo de registro:
 ```bash
-curl -X POST http://localhost:8001/register \
-  -H "Content-Type: application/json" \
-  -d '{
-    "username": "juanito",
-    "email": "juan@example.com",
-    "password": "mipassword123"
-  }'
+cd terraform
+terraform show
+terraform output
 ```
 
-#### Ejemplo de login:
+### Verificar Destinos Disponibles
+
 ```bash
-curl -X POST http://localhost:8001/token \
-  -H "Content-Type: application/json" \
-  -d '{
-    "username": "juanito",
-    "password": "mipassword123"
-  }'
+# Ver todos los destinos
+curl https://zp9xx62mde.execute-api.us-east-1.amazonaws.com/api/destinations | python3 -m json.tool
+
+# Deberías ver 6 destinos de ejemplo creados automáticamente
 ```
 
-**Respuesta:**
-```json
-{
-  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "token_type": "bearer"
-}
+### Actualizar Infraestructura
+
+```bash
+cd terraform
+terraform plan   # Ver cambios
+terraform apply  # Aplicar cambios
+```
+
+### Eliminar Todo (⚠️ Cuidado)
+
+```bash
+cd terraform
+terraform destroy
+```
+
+### Ver Logs
+
+```bash
+# Logs de Lambda Auth
+aws logs tail /aws/lambda/colombia-explora-auth --follow
+
+# Logs de Lambda API
+aws logs tail /aws/lambda/colombia-explora-api --follow
+
+# Logs de API Gateway
+aws logs tail /aws/apigateway/colombia-explora-api-gateway --follow
 ```
 
 ---
 
-### API Service (Puerto 8000)
+## 💰 Costos (AWS Free Tier)
 
-| Método | Endpoint | Descripción | Auth | Admin |
-|--------|----------|-------------|------|-------|
-| GET | `/destinations` | Listar destinos | ❌ | ❌ |
-| POST | `/destinations` | Crear destino | ✅ | ✅ |
-| PATCH | `/destinations/{id}` | Actualizar destino | ✅ | ✅ |
-| DELETE | `/destinations/{id}` | Eliminar destino | ✅ | ✅ |
-| GET | `/reservations` | Listar mis reservas | ✅ | ❌ |
-| POST | `/reservations` | Crear reserva | ✅ | ❌ |
-| GET | `/health` | Health check | ❌ | ❌ |
+Este despliegue está optimizado para usar el AWS Free Tier:
 
-#### Ejemplo: Crear destino (admin)
+- **RDS**: db.t3.micro (750 horas/mes gratis)
+- **Lambda**: 1M requests/mes gratis
+- **API Gateway**: 1M requests/mes gratis
+- **S3**: 5 GB storage gratis
+- **CloudFront**: 1 TB transferencia/mes gratis
+
+Después del free tier, costos estimados: **~$15-30/mes** (según uso)
+
+---
+
+## 🎯 Verificación Post-Despliegue
+
+### Verificar que los Destinos se Muestran
+
+Si no ves destinos en el frontend, verifica:
+
 ```bash
-# 1. Login como admin
-TOKEN=$(curl -sS -X POST http://localhost:8001/token \
+# Verificar que el API responde
+curl https://zp9xx62mde.execute-api.us-east-1.amazonaws.com/api/destinations
+
+# Deberías ver un array con 6 destinos de ejemplo
+```
+
+Si el array está vacío, puedes crear destinos manualmente:
+
+1. **Inicia sesión como admin** en el frontend
+2. **Accede al panel de administración** (ruta `/admin`)
+3. **Crea nuevos destinos** usando el formulario
+
+O usa el API directamente:
+
+```bash
+# 1. Obtener token de admin
+TOKEN=$(curl -s -X POST https://zp9xx62mde.execute-api.us-east-1.amazonaws.com/auth/token \
   -H "Content-Type: application/json" \
   -d '{"username":"admin","password":"admin123"}' \
-  | python3 -c 'import sys,json; print(json.load(sys.stdin)["access_token"])')
+  | python3 -c "import sys, json; print(json.load(sys.stdin)['access_token'])")
 
-# 2. Crear destino
-curl -X POST http://localhost:8000/destinations \
+# 2. Crear un destino
+curl -X POST https://zp9xx62mde.execute-api.us-east-1.amazonaws.com/api/destinations \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{
-    "name": "Valle del Cocora",
-    "description": "Palmas de cera y paisajes increíbles",
-    "region": "Quindío",
-    "price": 120000
-  }'
+  -d '{"name":"Mi Destino","description":"Descripción","region":"Quindío","price":100000}'
 ```
-
-#### Ejemplo: Crear reserva
-```bash
-# 1. Login como usuario
-TOKEN=$(curl -sS -X POST http://localhost:8001/token \
-  -H "Content-Type: application/json" \
-  -d '{"username":"juanito","password":"mipassword123"}' \
-  | python3 -c 'import sys,json; print(json.load(sys.stdin)["access_token"])')
-
-# 2. Crear reserva con fechas
-curl -X POST http://localhost:8000/reservations \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "destination_id": 1,
-    "people": 3,
-    "check_in": "2025-12-20",
-    "check_out": "2025-12-25"
-  }'
-```
-
-**Respuesta:**
-```json
-{
-  "id": 1,
-  "user_id": 2,
-  "destination_id": 1,
-  "people": 3,
-  "check_in": "2025-12-20",
-  "check_out": "2025-12-25",
-  "total_price": 1800000.0,
-  "created_at": "2025-10-14T15:30:00"
-}
-```
-
-**Cálculo automático:** 
-- Precio por día: $120,000 COP
-- Personas: 3
-- Días: 5 (del 20 al 25)
-- **Total: 120,000 × 3 × 5 = $1,800,000 COP**
-
----
-
-## 🗄️ Base de Datos
-
-### Esquema
-
-#### Tabla: `user`
-```sql
-CREATE TABLE user (
-  id SERIAL PRIMARY KEY,
-  username VARCHAR(255) UNIQUE NOT NULL,
-  email VARCHAR(255) UNIQUE NOT NULL,
-  hashed_password VARCHAR(255) NOT NULL,
-  role VARCHAR(50) DEFAULT 'user',
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-```
-
-#### Tabla: `destination`
-```sql
-CREATE TABLE destination (
-  id SERIAL PRIMARY KEY,
-  name VARCHAR(255) NOT NULL,
-  description TEXT,
-  region VARCHAR(255),
-  price FLOAT,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-```
-
-#### Tabla: `reservation`
-```sql
-CREATE TABLE reservation (
-  id SERIAL PRIMARY KEY,
-  user_id INTEGER REFERENCES user(id),
-  destination_id INTEGER REFERENCES destination(id),
-  people INTEGER NOT NULL,
-  check_in DATE NOT NULL,
-  check_out DATE NOT NULL,
-  total_price FLOAT NOT NULL,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-```
-
-### Acceso directo a la BD
-
-```bash
-# Conectar a PostgreSQL
-docker exec -it explora_postgres psql -U explora -d explora
-
-# Ver tablas
-\dt
-
-# Consultar usuarios
-SELECT id, username, email, role FROM "user";
-
-# Consultar destinos
-SELECT * FROM destination;
-
-# Consultar reservas con información completa
-SELECT 
-  r.id, 
-  u.username, 
-  d.name as destination, 
-  r.people, 
-  r.check_in, 
-  r.check_out, 
-  r.total_price 
-FROM reservation r 
-JOIN "user" u ON r.user_id = u.id 
-JOIN destination d ON r.destination_id = d.id;
-```
-
----
-
-## 👥 Sistema de Roles
-
-### Roles Disponibles
-
-1. **user** (por defecto)
-   - Puede ver destinos
-   - Puede crear reservas
-   - Puede ver sus propias reservas
-
-2. **admin**
-   - Todos los permisos de `user`
-   - Puede crear, editar y eliminar destinos
-   - Acceso al panel de administración
-
-### Usuario Admin por Defecto
-
-Al iniciar el proyecto, se crea automáticamente un usuario administrador:
-
-```
-Username: admin
-Password: admin123
-Role: admin
-```
-
-**⚠️ IMPORTANTE:** Cambia esta contraseña en producción.
-
----
-
-## 💻 Desarrollo
-
-### 🎯 Entornos de Trabajo
-
-Este proyecto soporta **3 entornos** según tus necesidades:
-
-| Entorno | Cuándo usar | Herramientas |
-|---------|-------------|--------------|
-| **🔧 Desarrollo Local** | Desarrollo diario, debugging, hot reload | Python nativo + PyCharm/VSCode |
-| **🐳 Docker Compose** | Testing de integración, simular producción | Docker + Compose |
-| **☸️ Kubernetes** | Deploy real, producción, auto-scaling | Minikube / GKE / EKS |
-
----
-
-### 🔧 Desarrollo Local (Recomendado para Development)
-
-**¿Por qué usar esto?**
-- ✅ **Debugger completo** con breakpoints en PyCharm/VSCode
-- ✅ **Hot reload ultra-rápido** (~2 segundos)
-- ✅ **Inspeccionar variables** en tiempo real
-- ✅ **Sin necesidad de reconstruir contenedores**
-
-**📖 Ver la [Guía Completa de Desarrollo](DEVELOPMENT.md)** para:
-- Setup automático con script
-- Configuración de PyCharm y VSCode
-- Debugging paso a paso
-- Hot reload con uvicorn
-- Best practices
-
-**Quick Start:**
-
-```bash
-# 1. Setup inicial (solo una vez)
-./scripts/dev-setup.sh
-
-# 2. Iniciar PostgreSQL (solo la BD en Docker)
-docker-compose -f docker-compose.dev.yml up -d postgres
-
-# 3. Iniciar servicios con hot reload
-# Terminal 1: Auth Service
-cd auth && source venv/bin/activate && uvicorn app.main:app --reload --port 8001
-
-# Terminal 2: API Service
-cd api && source venv/bin/activate && uvicorn app.main:app --reload --port 8000
-
-# Terminal 3: Frontend
-cd frontend && npm start
-
-# 🎯 Ahora puedes poner breakpoints en PyCharm y debugear!
-```
-
----
-
-### 🐳 Docker Compose (Testing de Integración)
-
-**¿Cuándo usar esto?**
-- Probar todos los servicios juntos
-- Simular entorno de producción
-- Antes de hacer commit
-- CI/CD
-
-**Ver logs en tiempo real:**
-
-```bash
-# Todos los servicios
-docker-compose logs -f
-
-# Solo un servicio específico
-docker-compose logs -f frontend
-docker-compose logs -f api
-docker-compose logs -f auth
-docker-compose logs -f postgres
-```
-
-**Reiniciar un servicio:**
-
-```bash
-docker-compose restart frontend
-```
-
-**Reconstruir después de cambios:**
-
-```bash
-# Reconstruir todo
-docker-compose down
-docker-compose up --build -d
-
-# Reconstruir solo frontend
-docker-compose build frontend
-docker-compose restart frontend
-```
-
-**Resetear la base de datos:**
-
-```bash
-# ⚠️ Esto borrará todos los datos
-docker-compose down
-sudo rm -rf data/postgres
-docker-compose up -d
-```
-
----
-
-## ☸️ Kubernetes
-
-Para desplegar esta aplicación en Kubernetes (producción, alta disponibilidad, auto-escalado):
-
-### 📖 Documentación Completa
-
-Consulta la **[Guía Completa de Kubernetes](README-KUBERNETES.md)** que incluye:
-
-- ✅ Explicación para principiantes (¿Qué es Kubernetes?)
-- ✅ Instalación local con Minikube
-- ✅ Despliegue automático con scripts
-- ✅ Despliegue manual paso a paso
-- ✅ Configuración de autoscaling
-- ✅ Monitoreo y troubleshooting
-- ✅ Despliegue en la nube (GKE, EKS, AKS)
-- ✅ Comandos útiles (kubectl cheat sheet)
-
-### ⚡ Quick Start (Minikube)
-
-```bash
-# 1. Iniciar Minikube
-minikube start --cpus=4 --memory=8192
-
-# 2. Habilitar addons
-minikube addons enable ingress
-minikube addons enable metrics-server
-
-# 3. Desplegar automáticamente
-./scripts/k8s-deploy.sh
-
-# 4. Acceder a la aplicación
-minikube service frontend-service -n explora
-```
-
-### 📦 Recursos Kubernetes
-
-El directorio `k8s/` contiene 10 manifiestos YAML:
-
-- **namespace.yaml**: Namespace "explora" para aislamiento
-- **configmap.yaml**: Variables de configuración
-- **secrets.yaml**: Contraseñas y tokens
-- **postgres-pv.yaml**: Volumen persistente (10GB)
-- **postgres-deployment.yaml**: Base de datos (1 réplica)
-- **auth-deployment.yaml**: Servicio de autenticación (2 réplicas)
-- **api-deployment.yaml**: API principal (3 réplicas)
-- **frontend-deployment.yaml**: Frontend (3 réplicas)
-- **ingress.yaml**: Routing HTTP/HTTPS
-- **autoscaler.yaml**: Escalado automático basado en CPU
-
-### 🎯 Características Kubernetes
-
-- ✅ **Alta disponibilidad**: Múltiples réplicas de cada servicio
-- ✅ **Auto-healing**: Reinicio automático de pods fallidos
-- ✅ **Escalado automático**: HPA escala de 2 a 10 réplicas según CPU
-- ✅ **Zero-downtime deployments**: Rolling updates sin interrupciones
-- ✅ **Persistent storage**: Datos de PostgreSQL sobreviven a reinicios
-- ✅ **Load balancing**: Distribución automática de tráfico
-- ✅ **Health checks**: Liveness y readiness probes
-- ✅ **Secrets management**: Variables sensibles encriptadas
-
-### 🔗 Ver más
-
-Para instrucciones detalladas, arquitectura, troubleshooting y despliegue en producción, consulta **[README-KUBERNETES.md](README-KUBERNETES.md)**.
-
----
-
-## 🧪 Testing
-
-### Health checks
-
-```bash
-# Script de verificación completa
-./scripts/health_check.sh
-```
-
-O manualmente:
-
-```bash
-echo "=== Auth Service ==="
-curl http://localhost:8001/health
-
-echo -e "\n=== API Service ==="
-curl http://localhost:8000/health
-
-echo -e "\n=== Frontend ==="
-curl -I http://localhost:4200
-```
-
-### Tests funcionales completos
-
-```bash
-# 1. Registrar usuario
-curl -X POST http://localhost:8001/register \
-  -H "Content-Type: application/json" \
-  -d '{"username":"test","email":"test@test.com","password":"test123"}'
-
-# 2. Login
-TOKEN=$(curl -sS -X POST http://localhost:8001/token \
-  -H "Content-Type: application/json" \
-  -d '{"username":"test","password":"test123"}' \
-  | python3 -c 'import sys,json; print(json.load(sys.stdin)["access_token"])')
-
-# 3. Ver destinos
-curl http://localhost:8000/destinations
-
-# 4. Crear reserva
-curl -X POST http://localhost:8000/reservations \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"destination_id":1,"people":2,"check_in":"2025-12-20","check_out":"2025-12-22"}'
-
-# 5. Ver mis reservas
-curl http://localhost:8000/reservations \
-  -H "Authorization: Bearer $TOKEN"
-```
-
----
-
-## 🎨 Personalización del Frontend
-
-### Paleta de Colores
-
-Edita `frontend/src/styles.scss`:
-
-```scss
-:root {
-  --primary-green: #00b09b;    // Verde primario
-  --secondary-green: #96c93d;  // Verde secundario
-  --accent-yellow: #f5b700;    // Amarillo acento
-  --deep-blue: #2d5f7e;        // Azul profundo
-  --sky-blue: #5fa8d3;         // Azul cielo
-}
-```
-
-### Imágenes del Hero
-
-Edita `frontend/src/app/pages/home.component.ts`:
-
-```typescript
-destinationImages = [
-  'URL_DE_TU_IMAGEN_1',
-  'URL_DE_TU_IMAGEN_2',
-  // ...
-];
-```
-
----
-
-## 📦 Despliegue en Producción
-
-### Variables de Entorno
-
-Crea un archivo `.env`:
-
-```env
-# Database
-POSTGRES_USER=explora_prod
-POSTGRES_PASSWORD=<password_seguro>
-POSTGRES_DB=explora_prod
-
-# JWT Secret
-JWT_SECRET=<secreto_aleatorio_muy_largo>
-
-# Puertos (opcional)
-FRONTEND_PORT=80
-API_PORT=8000
-AUTH_PORT=8001
-```
-
-### Docker Compose para Producción
-
-```bash
-docker-compose -f docker-compose.prod.yml up -d
-```
-
-### Consideraciones de Seguridad
-
-1. ✅ Cambiar contraseña del admin por defecto
-2. ✅ Usar JWT_SECRET fuerte y aleatorio
-3. ✅ Habilitar HTTPS con certificado SSL
-4. ✅ Configurar CORS apropiadamente
-5. ✅ Usar variables de entorno para secretos
-6. ✅ Limitar rate limiting en nginx
-7. ✅ Backups regulares de PostgreSQL
-
----
-
-## 🤝 Contribución
-
-1. Fork el proyecto
-2. Crea una rama: `git checkout -b feature/nueva-funcionalidad`
-3. Commit: `git commit -m 'Add nueva funcionalidad'`
-4. Push: `git push origin feature/nueva-funcionalidad`
-5. Abre un Pull Request
-
----
-
-## 📄 Licencia
-
-Este proyecto está bajo la Licencia MIT.
 
 ---
 
@@ -915,10 +277,11 @@ Este proyecto está bajo la Licencia MIT.
 
 Si tienes problemas:
 
-1. Verifica que Docker esté corriendo: `docker ps`
-2. Revisa los logs: `docker-compose logs -f`
-3. Reinicia los servicios: `docker-compose restart`
-4. Reconstruye desde cero: `docker-compose down && docker-compose up --build`
+1. Verifica que AWS CLI esté configurado: `aws sts get-caller-identity`
+2. Revisa los logs de CloudWatch
+3. Consulta `terraform/README.md` para troubleshooting
+4. Verifica permisos IAM en `terraform/PERMISOS-IAM.md`
+5. Verifica que los destinos existan: `curl https://[API_URL]/api/destinations`
 
 ---
 

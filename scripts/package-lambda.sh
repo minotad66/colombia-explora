@@ -45,8 +45,8 @@ cd lambda_package
 
 # Instalar dependencias
 echo "  → Instalando dependencias..."
-pip install -r ../requirements.txt -t . -q --upgrade
-pip install mangum==0.17.0 -t . -q
+pip3 install -r ../requirements.txt -t . -q --upgrade
+pip3 install mangum==0.17.0 -t . -q
 
 # Copiar código de la aplicación
 echo "  → Copiando código de aplicación..."
@@ -78,8 +78,8 @@ cd lambda_package
 
 # Instalar dependencias
 echo "  → Instalando dependencias..."
-pip install -r ../requirements.txt -t . -q --upgrade
-pip install mangum==0.17.0 -t . -q
+pip3 install -r ../requirements.txt -t . -q --upgrade
+pip3 install mangum==0.17.0 -t . -q
 
 # Copiar código de la aplicación
 echo "  → Copiando código de aplicación..."

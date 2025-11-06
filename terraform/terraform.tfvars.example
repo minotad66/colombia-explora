@@ -1,0 +1,96 @@
+# ============================================
+# Variables de Configuración - Colombia Explora
+# ============================================
+# Copia este archivo a terraform.tfvars y ajusta los valores
+
+# Región AWS
+aws_region = "us-east-1"
+
+# Entorno
+environment = "prod"
+
+# Nombre del proyecto
+project_name = "colombia-explora"
+
+# ============================================
+# RDS Configuration
+# ============================================
+db_instance_class = "db.t3.micro"  # Free tier: db.t3.micro
+db_allocated_storage = 20
+db_name = "colombiaexplora"
+db_username = "explora_admin"
+# db_password = ""  # Si no se proporciona, se genera automáticamente
+db_backup_retention_period = 7  # 0 para free tier
+db_publicly_accessible = true
+
+# ============================================
+# Lambda Configuration
+# ============================================
+lambda_runtime = "python3.11"
+lambda_memory_size = 512
+lambda_timeout = 30
+# jwt_secret = ""  # Si no se proporciona, se genera automáticamente
+
+# ============================================
+# S3 Configuration
+# ============================================
+# frontend_bucket_name = ""  # Si no se proporciona, se genera automáticamente con sufijo único
+
+# ============================================
+# CloudFront Configuration
+# ============================================
+enable_cloudfront = true
+cloudfront_price_class = "PriceClass_100"  # PriceClass_100 = Solo US, Canada, Europe (más barato)
+
+# ============================================
+# Route 53 y Dominio Personalizado (Opcional)
+# ============================================
+# Para usar un dominio personalizado, configura:
+# custom_domain = "colombia-explora.frontend.com"
+#
+# Opción A: Si tienes el ID del hosted zone
+# route53_hosted_zone_id = "Z1234567890ABC"
+#
+# Opción B: Si conoces el nombre del dominio (debe terminar en punto)
+# route53_hosted_zone_name = "frontend.com."
+#
+# Opción C: Dejar ambos vacíos y Terraform buscará automáticamente
+#           el hosted zone basándose en el dominio raíz de custom_domain
+#
+# custom_domain = ""  # Ejemplo: colombia-explora.frontend.com
+# route53_hosted_zone_id = ""  # ID del hosted zone (opcional)
+# route53_hosted_zone_name = ""  # Nombre del dominio (opcional, ej: frontend.com.)
+# create_route53_record = true  # Crear registro en Route 53
+# use_cname_instead_of_alias = true  # Usar CNAME simple (sin SSL, más fácil para subdominios)
+
+# ============================================
+# VPC Configuration (opcional)
+# ============================================
+# Si no se proporcionan, se usan valores por defecto
+# vpc_id = ""
+# subnet_ids = []
+
+# ============================================
+# Monitoring Configuration
+# ============================================
+enable_detailed_monitoring = false  # Free tier: false (monitoreo básico gratis)
+log_retention_days = 30             # Free tier: 5GB logs, 30 días es razonable
+enable_cloudwatch_alarms = true     # Free tier: 10 alarms gratis
+
+# ============================================
+# IAM Permissions Configuration
+# ============================================
+# Si es true, Terraform intentará crear y adjuntar automáticamente
+# la política IAM necesaria al usuario actual.
+# Si falla por falta de permisos, configúralos manualmente.
+# Ver: CONFIGURAR-PERMISOS-AHORA.md
+auto_setup_iam_permissions = true
+
+# ============================================
+# Tags Adicionales
+# ============================================
+# additional_tags = {
+#   Team = "Development"
+#   Owner = "tu-email@example.com"
+# }
+

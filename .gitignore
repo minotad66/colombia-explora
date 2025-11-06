@@ -95,6 +95,18 @@ ehthumbs.db
 Thumbs.db
 
 # ==============================================
+# TERRAFORM
+# ==============================================
+terraform/.terraform/
+terraform/.terraform.lock.hcl
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup
+terraform/*.tfplan
+terraform/*.tfvars
+terraform/iam_plan
+terraform/tfplan
+
+# ==============================================
 # TEMPORALES
 # ==============================================
 *.tmp

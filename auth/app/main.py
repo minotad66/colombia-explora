@@ -50,13 +50,13 @@ class TokenRequest(BaseModel):
     password: str
 
 
-@app.on_event("startup")
-def on_startup():
-    import time
-    # Wait for DB to be ready with retries
-    retries = 12
-    delay = 2
-    for attempt in range(1, retries + 1):
+# Variable global para asegurar que las tablas se creen solo una vez
+_tables_created = False
+
+def ensure_tables():
+    """Asegurar que las tablas existan (llamar antes de cada operación DB)"""
+    global _tables_created
+    if not _tables_created:
         try:
             SQLModel.metadata.create_all(engine)
             # Create default admin user if it doesn't exist
@@ -69,20 +69,24 @@ def on_startup():
                     admin = User(username="admin", email="admin@explora.com", hashed_password=hashed, role="admin")
                     session.add(admin)
                     session.commit()
-            break
+            _tables_created = True
         except Exception as exc:
-            if attempt == retries:
-                raise
-            time.sleep(delay)
+            # Si falla, intentar de nuevo en la próxima request
+            pass
 
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    try:
+        ensure_tables()  # Verificar que las tablas existan
+        return {"status": "ok", "database": "connected"}
+    except Exception as e:
+        return {"status": "error", "database": "disconnected", "error": str(e)}
 
 
 @app.post("/register")
 def register(req: RegisterRequest, session: Session = Depends(get_session)):
+    ensure_tables()  # Asegurar que las tablas existan
     q = select(User).where(User.username == req.username)
     r = session.exec(q)
     existing = r.first()
@@ -98,6 +102,7 @@ def register(req: RegisterRequest, session: Session = Depends(get_session)):
 
 @app.post("/token")
 def token(req: TokenRequest, session: Session = Depends(get_session)):
+    ensure_tables()  # Asegurar que las tablas existan
     q = select(User).where(User.username == req.username)
     r = session.exec(q)
     user = r.first()

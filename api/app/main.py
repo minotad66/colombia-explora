@@ -58,35 +58,40 @@ class DestinationUpdate(BaseModel):
     price: float | None = None
 
 
-@app.on_event("startup")
-def on_startup():
-    import time
-    # Wait for DB to be ready with retries
-    retries = 12
-    delay = 2
-    for attempt in range(1, retries + 1):
+# Variable global para asegurar que las tablas se creen solo una vez
+_tables_created = False
+
+def ensure_tables():
+    """Asegurar que las tablas existan (llamar antes de cada operación DB)"""
+    global _tables_created
+    if not _tables_created:
         try:
             SQLModel.metadata.create_all(engine)
-            break
-        except Exception:
-            if attempt == retries:
-                raise
-            time.sleep(delay)
+            _tables_created = True
+        except Exception as exc:
+            # Si falla, intentar de nuevo en la próxima request
+            pass
 
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    try:
+        ensure_tables()  # Verificar que las tablas existan
+        return {"status": "ok", "database": "connected"}
+    except Exception as e:
+        return {"status": "error", "database": "disconnected", "error": str(e)}
 
 
 @app.get("/destinations")
 def list_destinations(session: Session = Depends(get_session)):
+    ensure_tables()  # Asegurar que las tablas existan
     result = session.exec(select(Destination))
     return result.all()
 
 
 @app.post("/destinations")
 def create_destination(dest: Destination, session: Session = Depends(get_session), payload=Depends(require_admin)):
+    ensure_tables()  # Asegurar que las tablas existan
     # only admin users can create destinations
     session.add(dest)
     session.commit()
@@ -101,6 +106,7 @@ def update_destination(
     session: Session = Depends(get_session), 
     payload=Depends(require_admin)
 ):
+    ensure_tables()  # Asegurar que las tablas existan
     # only admin users can update destinations
     q = select(Destination).where(Destination.id == destination_id)
     r = session.exec(q)
@@ -130,6 +136,7 @@ def delete_destination(
     session: Session = Depends(get_session), 
     payload=Depends(require_admin)
 ):
+    ensure_tables()  # Asegurar que las tablas existan
     # only admin users can delete destinations
     q = select(Destination).where(Destination.id == destination_id)
     r = session.exec(q)
@@ -143,6 +150,7 @@ def delete_destination(
 
 @app.post("/reservations")
 def create_reservation(body: 'ReservationCreate', session: Session = Depends(get_session), payload=Depends(require_token)):
+    ensure_tables()  # Asegurar que las tablas existan
     # Validate dates
     if body.check_out <= body.check_in:
         raise HTTPException(status_code=400, detail="Check-out date must be after check-in date")
@@ -177,6 +185,7 @@ def create_reservation(body: 'ReservationCreate', session: Session = Depends(get
 
 @app.get("/reservations")
 def list_reservations(session: Session = Depends(get_session), payload=Depends(require_token)):
+    ensure_tables()  # Asegurar que las tablas existan
     user_id = payload.get("user_id")
     result = session.exec(select(Reservation).where(Reservation.user_id == user_id))
     return result.all()
